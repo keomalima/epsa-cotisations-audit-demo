@@ -1,0 +1,40 @@
+@baseUrl = http://localhost:3000
+
+### Health check
+GET {{baseUrl}}/api/health
+
+### Audit - normal dataset
+POST {{baseUrl}}/api/audit
+Content-Type: application/json
+
+{
+  "lines": [
+    { "grossSalary": 1800, "month": "2026-01", "age": 24 },
+    { "grossSalary": 2300, "month": "2026-01", "age": 31 },
+    { "grossSalary": 3200, "month": "2026-01", "age": 42 }
+  ]
+}
+
+### Audit - anomaly dataset (high deltas)
+POST {{baseUrl}}/api/audit
+Content-Type: application/json
+
+{
+  "lines": [
+    { "grossSalary": 1100, "month": "2026-02", "age": 22 },
+    { "grossSalary": 1500, "month": "2026-02", "age": 25 },
+    { "grossSalary": 1950, "month": "2026-02", "age": 23 }
+  ]
+}
+
+### Audit - edge dataset (min/max age and salary bands)
+POST {{baseUrl}}/api/audit
+Content-Type: application/json
+
+{
+  "lines": [
+    { "grossSalary": 900, "month": "2026-03", "age": 16 },
+    { "grossSalary": 2500, "month": "2026-03", "age": 26 },
+    { "grossSalary": 5000, "month": "2026-03", "age": 80 }
+  ]
+}
