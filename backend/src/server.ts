@@ -1,11 +1,13 @@
 // Third-party
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import { auditRoutes } from './routes/audit.routes.js';
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
 
 // Fastify instance
 const fastify = Fastify({ logger: true, trustProxy: true }).withTypeProvider<ZodTypeProvider>();
 
+await fastify.register(cors, { origin: '*' });
 fastify.setValidatorCompiler(validatorCompiler);
 fastify.setSerializerCompiler(serializerCompiler);
 

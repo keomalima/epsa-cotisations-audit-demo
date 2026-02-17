@@ -1,4 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
+import { spawn } from 'node:child_process'
+import { join } from 'node:path'
 import { type AuditInput } from './audit.schemas.js';
 
 // =====================
@@ -6,57 +8,13 @@ import { type AuditInput } from './audit.schemas.js';
 // =====================
 
 async function auditHandler (request: FastifyRequest<{ Body: AuditInput }>, reply: FastifyReply) {
-	try {
-		const body = request.body;
-    const lines = body.lines.map((line, index) => {
-      const declaredRate = 0.42;
-      const atRate = line.grossSalary <= 2000 ? 0.015 : line.grossSalary <= 3500 ? 0.02 : 0.025;
-      const reductionRateBase = Math.max(0, (2500 - line.grossSalary) / 2500) * 0.08;
-      const youthBonus = line.age < 26 ? 0.01 : 0;
-      const reductionRate = reductionRateBase + youthBonus;
-      const recalculatedRate = Math.max(0.22, declaredRate - reductionRate);
-
-      const declaredCotisation = round2(line.grossSalary * declaredRate);
-      const recalculatedCotisation = round2(line.grossSalary * recalculatedRate);
-      const fillonReduction = round2(line.grossSalary * reductionRate);
-      const atCotisation = round2(line.grossSalary * atRate);
-      const delta = round2(declaredCotisation - recalculatedCotisation);
-
-      return {
-        id: index + 1,
-        month: line.month,
-        age: line.age,
-        grossSalary: line.grossSalary,
-        rates: {
-          declaredRate: round4(declaredRate),
-          recalculatedRate: round4(recalculatedRate),
-          atRate: round4(atRate),
-          reductionRate: round4(reductionRate)
-        },
-        amounts: {
-          declaredCotisation,
-          recalculatedCotisation,
-          fillonReduction,
-          atCotisation,
-          delta
-        },
-        status: delta > 30 ? "review" : "ok"
-      };
-    });
-
-    const summary = {
-      lineCount: lines.length,
-      totalGross: round2(sum(lines.map((line) => line.grossSalary))),
-      totalDeclaredCotisation: round2(sum(lines.map((line) => line.amounts.declaredCotisation))),
-      totalRecalculatedCotisation: round2(sum(lines.map((line) => line.amounts.recalculatedCotisation))),
-      totalDelta: round2(sum(lines.map((line) => line.amounts.delta))),
-      flaggedCount: lines.filter((line) => line.status === "review").length
-    };
-
-		return reply.code(200).send({ summary, lines });
-	} catch (error: any) {
-		reply.code(500).send({ message: "Failed to audit input"});
-	}
+  try {
+    const result = await runPythonAudit(request.body)
+    return reply.code(200).send(result)
+  } catch (error: any) {
+    request.log.error({ err: error }, 'Python audit failed')
+    return reply.code(500).send({ message: 'Failed to audit input' })
+  }
 }
 
 async function healthHandler (request: FastifyRequest, reply: FastifyReply) {
@@ -67,6 +25,38 @@ async function healthHandler (request: FastifyRequest, reply: FastifyReply) {
     }
 }
 
+function runPythonAudit(body: AuditInput): Promise<any> {
+  // Resolve from backend/ to repo root
+  const scriptPath = join(process.cwd(), '..', 'script', 'audit.py')
+  const input = JSON.stringify(body)
+
+  return new Promise((resolve, reject) => {
+    const child = spawn('python3', [scriptPath], { stdio: ['pipe', 'pipe', 'pipe'] })
+
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString() })
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString() })
+
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`python exited with code ${code}: ${stderr}`))
+      }
+      try {
+        const parsed = JSON.parse(stdout)
+        resolve(parsed)
+      } catch (err) {
+        reject(new Error(`failed to parse python output: ${err instanceof Error ? err.message : String(err)}`))
+      }
+    })
+
+    child.stdin.write(input)
+    child.stdin.end()
+  })
+}
+
 // =====================
 // Export Controller Object
 // =====================
@@ -75,15 +65,3 @@ export const auditControllers = {
 	auditHandler,
     healthHandler
 };
-
-function sum(values: number[]): number {
-  return values.reduce((acc, value) => acc + value, 0);
-}
-
-function round2(value: number): number {
-  return Number(value.toFixed(2));
-}
-
-function round4(value: number): number {
-  return Number(value.toFixed(4));
-}
