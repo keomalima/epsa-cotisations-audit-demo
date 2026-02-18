@@ -26,7 +26,6 @@ async function healthHandler (request: FastifyRequest, reply: FastifyReply) {
 }
 
 function runPythonAudit(body: AuditInput): Promise<any> {
-  // Resolve from backend/ to repo root
   const scriptPath = join(process.cwd(), '..', 'script', 'audit.py')
   const input = JSON.stringify(body)
 
