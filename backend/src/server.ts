@@ -1,6 +1,8 @@
 // Third-party
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
+import { join } from 'node:path';
 import { auditRoutes } from './routes/audit.routes.js';
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
 
@@ -13,6 +15,12 @@ fastify.setSerializerCompiler(serializerCompiler);
 
 // Route registration
 fastify.register(auditRoutes, { prefix: "/api" });
+
+// Serve frontend static files
+await fastify.register(fastifyStatic, {
+  root: join(process.cwd(), '..', 'frontend', 'dist'),
+  prefix: '/'
+});
 
 // Server start
 try {
