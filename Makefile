@@ -1,9 +1,9 @@
-dev: install
-	npm --prefix backend run dev & \
-	npm --prefix frontend run dev
+build:
+	docker build -t audit-app .
 
-install:
-	npm --prefix backend install
-	npm --prefix frontend install
+run:
+	docker run -p 3000:3000 audit-app
 
-.PHONY: dev install
+start: build run
+
+.PHONY: build run start
