@@ -61,7 +61,6 @@ def compute_report(lines: List[PayrollLine]) -> Dict:
         row["id"] = idx
         results.append(row)
 
-    # Use Decimal to avoid float drift when summing
     total_gross = round2(sum(Decimal(str(r["grossSalary"])) for r in results))
     total_declared = round2(sum(Decimal(str(r["amounts"]["declaredCotisation"])) for r in results))
     total_recalculated = round2(sum(Decimal(str(r["amounts"]["recalculatedCotisation"])) for r in results))
